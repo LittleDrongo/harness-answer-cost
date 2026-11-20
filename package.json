@@ -1,8 +1,8 @@
 {
   "name": "@local/answer-cost",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
-  "description": "Shows an estimated cost under every completed answer in Chat.",
+  "description": "Shows each answer's cost and the whole session's cost in one line under every completed answer in Chat.",
   "type": "module",
   "exports": {
     ".": "./index.js",
@@ -20,7 +20,9 @@
     "README.md"
   ],
   "dsh": {
-    "bundle": { "patch": "./cordis.patch.yml" },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "client": {
       "platform": "web",
       "immediately": true,

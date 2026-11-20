@@ -111,9 +111,13 @@ window.__ModuleLoader__.load({
 
     const LOCALES = {
       en: {
-        badge: '≈ {cost}',
-        badgeBound: '< {cost}',
+        approx: '≈ {amount}',
+        bound: '< {amount}',
         badgeTokens: '{tokens} tok',
+        sessionInline: 'session {amount}',
+        sessionRow: 'Session',
+        sessionNote: 'Session total covers the whole Session log, including earlier turns.',
+        sessionPartial: 'Routes without a price are not part of the session total.',
         hint: 'Estimated cost of this answer — open the token breakdown',
         title: 'Estimated cost',
         model: 'Model',
@@ -134,9 +138,13 @@ window.__ModuleLoader__.load({
         estimate: 'Estimated from the plugin configuration. Defaults are peak-rate prices.',
       },
       ru: {
-        badge: '≈ {cost}',
-        badgeBound: '< {cost}',
+        approx: '≈ {amount}',
+        bound: '< {amount}',
         badgeTokens: 'токены: {tokens}',
+        sessionInline: 'сессия {amount}',
+        sessionRow: 'Сессия',
+        sessionNote: 'Итог сессии — по всему журналу, включая прошлые ходы.',
+        sessionPartial: 'Маршруты без цены не вошли в итог сессии.',
         hint: 'Оценка стоимости ответа — показать расход токенов',
         title: 'Оценка стоимости',
         model: 'Модель',
@@ -157,9 +165,13 @@ window.__ModuleLoader__.load({
         estimate: 'Оценка по ценам из настроек плагина. По умолчанию — пиковые тарифы.',
       },
       zh: {
-        badge: '≈ {cost}',
-        badgeBound: '< {cost}',
+        approx: '≈ {amount}',
+        bound: '< {amount}',
         badgeTokens: '{tokens} 令牌',
+        sessionInline: '会话 {amount}',
+        sessionRow: '会话',
+        sessionNote: '会话总计覆盖整个日志，包括此前的轮次。',
+        sessionPartial: '未配置价格的路由不计入会话总计。',
         hint: '本次回答的费用估算 — 展开查看令牌明细',
         title: '费用估算',
         model: '模型',
@@ -244,17 +256,31 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * Resolve the price for one exact route: an exact `provider/model` entry
-     * wins, then the wildcard entry that prices every provider serving that
-     * model, then nothing.
+     * Price configured for one route key: an exact `provider/model` entry,
+     * then the wildcard entry for that model, then nothing.
+     */
+    function priceForKey(prices, key) {
+      if (typeof key !== 'string' || key.length === 0) return undefined
+      if (Object.prototype.hasOwnProperty.call(prices, key)) return prices[key]
+      const slash = key.indexOf('/')
+      if (slash < 0) return undefined
+      const wildcard = '*/' + key.slice(slash + 1)
+      return Object.prototype.hasOwnProperty.call(prices, wildcard) ? prices[wildcard] : undefined
+    }
+
+    /** Whether a price entry states no price at all. */
+    function isZeroPrice(price) {
+      return price.input === 0 && price.cacheRead === 0 && price.cacheWrite === 0 && price.output === 0
+    }
+
+    /**
+     * Resolve the price for one exact route object.
      */
     function resolvePrice(prices, route) {
       const key = routeKeyOf(route)
       if (key === undefined) return null
-      if (Object.prototype.hasOwnProperty.call(prices, key)) return { key, price: prices[key] }
-      const wildcard = '*/' + route.model
-      if (Object.prototype.hasOwnProperty.call(prices, wildcard)) return { key, price: prices[wildcard] }
-      return null
+      const price = priceForKey(prices, key)
+      return price === undefined ? null : { key, price }
     }
 
     /**
@@ -270,7 +296,7 @@ window.__ModuleLoader__.load({
       const { key, price } = resolved
       // A wholly zero entry configures no price at all; treat it as unpriced
       // rather than claiming the answer was free.
-      if (price.input === 0 && price.cacheRead === 0 && price.cacheWrite === 0 && price.output === 0) return null
+      if (isZeroPrice(price)) return null
       const inputTokens = countOr(usage.uncachedInputTokens, 0)
       const cacheReadTokens = countOr(usage.cacheReadTokens, 0)
       const cacheWriteTokens = countOr(usage.cacheWriteTokens, 0)
@@ -359,17 +385,55 @@ window.__ModuleLoader__.load({
     }
 
     /**
+     * Price the whole Session from the host projection: per-route token buckets
+     * multiplied by the same prices as one answer.
+     * @param view - the `answerCost` wire view, or undefined while absent.
+     * @param prices - per-route prices in USD per 1M tokens.
+     * @returns USD total, its token total, and how many routes stayed unpriced.
+     */
+    function sessionCostOf(view, prices) {
+      if (view === null || view === undefined || typeof view !== 'object') return null
+      const routes = view.routes
+      if (routes === null || routes === undefined || typeof routes !== 'object') return null
+      let usd = 0
+      let tokens = 0
+      let pricedRoutes = 0
+      let unpricedRoutes = 0
+      for (const key of Object.keys(routes)) {
+        const buckets = routes[key]
+        if (buckets === null || typeof buckets !== 'object') continue
+        const input = countOr(buckets.input, 0)
+        const cacheRead = countOr(buckets.cacheRead, 0)
+        const cacheWrite = countOr(buckets.cacheWrite, 0)
+        const output = countOr(buckets.output, 0)
+        tokens += input + cacheRead + cacheWrite + output
+        const price = priceForKey(prices, key)
+        if (price === undefined || isZeroPrice(price)) {
+          if (input + cacheRead + cacheWrite + output > 0) unpricedRoutes += 1
+          continue
+        }
+        usd += (input * price.input + cacheRead * price.cacheRead + cacheWrite * price.cacheWrite + output * price.output) / 1e6
+        pricedRoutes += 1
+      }
+      if (pricedRoutes === 0 || !Number.isFinite(usd)) return null
+      return { usd, tokens, unpricedRoutes }
+    }
+
+    /**
      * Build the slot entry bound to one normalized configuration.
      * @param settings - display currency, its rate per USD, and per-route prices.
      * @param locale - the Client locale service, read for number formatting.
      * @returns the React entry for `conversation.chat.turnTail`.
      */
     function createAnswerCost(settings, locale) {
-      return function AnswerCost({ turn, t }) {
+      return function AnswerCost({ turn, t, useProjection }) {
         const [open, setOpen] = React.useState(false)
         const rootRef = React.useRef(null)
         const panelId = React.useId()
         const hintId = React.useId()
+        // Session-wide usage comes already folded from the Host projection, so
+        // the total is not limited to the loaded transcript window.
+        const sessionView = typeof useProjection === 'function' ? useProjection('answerCost') : undefined
 
         // The tail sits at the bottom of the transcript, so the breakdown opens
         // upward; Escape and a press outside dismiss it like a host stat dialog.
@@ -404,14 +468,37 @@ window.__ModuleLoader__.load({
         const singleRoute = routes.length === 1 ? routeKeyOf(routes[0]) : undefined
         // Provider prices are USD; the rate converts them for display only.
         const displayAmount = priced === null ? null : priced.amount * settings.rate
-        // A bounded amount replaces the approximate sign: "less than $0.0001"
-        // must not read as "approximately less than".
-        const costText = displayAmount === null ? undefined : formatCost(displayAmount, settings.currency, tag)
-        const label = costText === undefined
-          ? t('badgeTokens', { tokens: formatTokens(countOr(usage.totalTokens, 0), tag) })
-          : costText.startsWith('<')
-            ? t('badgeBound', { cost: costText.replace(/^<\s*/, '') })
-            : t('badge', { cost: costText })
+        const displayText = displayAmount === null ? undefined : formatCost(displayAmount, settings.currency, tag)
+        const usdText = priced === null ? undefined : formatCost(priced.amount, 'USD', tag)
+        const session = sessionCostOf(sessionView, settings.prices)
+        const sessionText = session === null
+          ? undefined
+          : settings.currency === 'USD'
+            ? formatCost(session.usd, 'USD', tag)
+            : formatCost(session.usd * settings.rate, settings.currency, tag)
+        const sessionUsdText = session === null || settings.currency === 'USD'
+          ? undefined
+          : formatCost(session.usd, 'USD', tag)
+
+        // One line: the answer in rubles and dollars, then the whole session.
+        const parts = []
+        if (displayText === undefined) {
+          parts.push(t('badgeTokens', { tokens: formatTokens(countOr(usage.totalTokens, 0), tag) }))
+        } else {
+          const bounded = displayText.startsWith('<')
+          const answerAmount = settings.currency === 'USD'
+            ? displayText
+            : displayText + ' / ' + usdText
+          parts.push(bounded
+            ? t('bound', { amount: answerAmount.replace(/^<\s*/, '') })
+            : t('approx', { amount: answerAmount }))
+        }
+        if (sessionText !== undefined) {
+          parts.push(t('sessionInline', {
+            amount: sessionUsdText === undefined ? sessionText : sessionText + ' / ' + sessionUsdText,
+          }))
+        }
+        const label = parts.join(' · ')
 
         const rows = []
         const row = (label, value) => {
@@ -431,6 +518,9 @@ window.__ModuleLoader__.load({
         row(t('output'), formatExactTokens(countOr(usage.outputTokens, 0), tag))
         row(t('totalTokens'), formatExactTokens(countOr(usage.totalTokens, 0), tag))
         if (priced !== null && settings.currency !== 'USD') row(t('inUsd'), formatCost(priced.amount, 'USD', tag))
+        if (session !== null && sessionText !== undefined) {
+          row(t('sessionRow'), sessionUsdText === undefined ? sessionText : sessionText + ' / ' + sessionUsdText)
+        }
         if (turn.steps !== undefined && turn.steps !== null) row(t('steps'), String(turn.steps.length))
 
         const notes = []
@@ -452,6 +542,12 @@ window.__ModuleLoader__.load({
           notes.push(h('p', { key: 'unpriced', className: 'answer-cost-note' }, t('unpriced', { route: singleRoute })))
         } else {
           notes.push(h('p', { key: 'noRoute', className: 'answer-cost-note' }, t('noRoute')))
+        }
+        if (session !== null) {
+          notes.push(h('p', { key: 'sessionNote', className: 'answer-cost-note' }, t('sessionNote')))
+          if (session.unpricedRoutes > 0) {
+            notes.push(h('p', { key: 'sessionPartial', className: 'answer-cost-note' }, t('sessionPartial')))
+          }
         }
         notes.push(h('p', { key: 'estimate', className: 'answer-cost-note' }, t('estimate')))
 

@@ -1,27 +1,37 @@
 # Answer cost
 
-Shows the estimated cost of an answer under that answer in Chat, so a session's
-spend is visible without leaving the conversation. Prices come from the provider
-in US dollars; the amount is shown in roubles (or any configured currency) at a
+Shows what each answer cost and what the whole session has cost so far, in one
+line under every completed reply in Chat. Prices come from the provider in US
+dollars; the amounts are also shown in roubles (or any configured currency) at a
 rate you control.
 
-Under every completed reply there is a small muted pill, for example `≈ 0,54 ₽`.
-Clicking it floats the token breakdown above the pill, over the reply — the model
-route, input tokens billed without a cache hit, cached input, cache writes when
-the provider reports them, output tokens, the Turn's total, the number of steps,
-the amount in US dollars, and the per-1M prices and rate that were applied.
-Escape or a press anywhere else closes it, and the reply and its action row never
-move.
+```
+≈ 0,54 ₽ / $0.0066 · сессия 7,87 ₽ / $0.0960
+```
+
+Clicking the line floats the token breakdown above it, over the reply — the
+model route, input tokens billed without a cache hit, cached input, cache writes
+when the provider reports them, output tokens, the Turn's total, the number of
+steps, the answer in US dollars, the session total, and the per-1M prices and
+rate that were applied. Escape or a press anywhere else closes it; the reply and
+its action row never move.
 
 ## Where the numbers come from
 
-The pill reads the exact per-Turn token accounting that the Chat layer already
-derives from the Session log — the same provider-reported usage the built-in
-"Turn usage" details show. The plugin adds no request, no prompt text and no
-Session event; it only multiplies the reported token buckets by the configured
-prices and rate. The value is therefore an estimate of the token bill, not an
-invoice: it cannot see provider discounts, off-peak windows, subscriptions, or
-rounding the provider applies.
+- **The answer** reads the exact per-Turn token accounting the Chat layer already
+  derives from the Session log — the same provider-reported usage the built-in
+  "Turn usage" details show.
+- **The session total** comes from a Host projection that folds the same usage
+  samples across the whole Session log, grouped by model route, so the total is
+  not limited to the transcript pages loaded in the browser. Retried attempts
+  count, and an attempt that settles without a message is attributed to the
+  route of the closest preceding message.
+
+The plugin adds no request, no prompt text and no Session event; it only
+multiplies reported token buckets by the configured prices and rate. The values
+are therefore an estimate of the token bill, not an invoice: they cannot see
+provider discounts, off-peak windows, subscriptions, or rounding the provider
+applies.
 
 ## Prices and the rouble rate
 
@@ -52,14 +62,15 @@ network request — so the rate is only as fresh as this configuration.
       'openrouter/deepseek-v4-pro': { input: 0.19, cacheRead: 0.19, cacheWrite: 0.19, output: 3.5 }
 ```
 
-Set `currency: USD` to see dollars and skip the conversion entirely. An exact
+Set `currency: USD` to see dollars only and skip the conversion. An exact
 `provider/model` entry wins over the wildcard field by field: the fields it omits
-come from the wildcard for the same model, which is how a reseller's different
-output rate is expressed without making its input free. A model with neither an
-exact nor a wildcard entry, or an entry whose four values are all zero, shows
-token usage instead of a cost and the opened panel says so. Several routes
-inside one Turn also show tokens only, because the Turn aggregates cannot be
-split across routes without guessing.
+come from the wildcard for the same model. A model with neither an exact nor a
+wildcard entry, or an entry whose four values are all zero, shows token usage
+instead of a cost and the opened panel says so; such routes are also excluded
+from the session total, which the panel reports. Several routes inside one Turn
+show tokens only, because the Turn aggregates cannot be split across routes
+without guessing — the session total is unaffected because the Host groups usage
+per route.
 
 Quote a wildcard key: in YAML a leading `*` otherwise begins an alias.
 
@@ -82,13 +93,14 @@ block there as well if you keep custom prices.
 
 ## Limits
 
-- The pill appears only for a Turn whose usage the Chat layer could prove from
+- The line appears only for a Turn whose usage the Chat layer could prove from
   the loaded log; with `turn/start` outside the loaded history window and for
   interrupted Turns, nothing is shown.
-- It prices the whole Turn: every model attempt that produced the reply,
-  including tool-call steps. A reply that needed three model calls shows their
-  combined cost.
+- The answer figure prices the whole Turn: every model attempt that produced the
+  reply, including tool-call steps.
+- The session total is the same arithmetic over the whole log, grouped by route;
+  a route without a price is excluded and the panel says the total is partial.
 - Numbers are only as accurate as the prices and rate in the configuration, and
   the rate is not updated automatically.
 
-Turning the plugin off in **Plugins** removes the pill; nothing else changes.
+Turning the plugin off in **Plugins** removes the line; nothing else changes.
