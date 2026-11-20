@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Answer cost",
+    "description": "Shows the estimated cost of each completed answer under the reply in Chat, converted to roubles at a rate from the plugin configuration, with a click-open breakdown of input, cached input and output tokens. Prices are USD per model route; the packaged defaults are DeepSeek peak-rate prices and the CBR rate for 20.11.2026.",
+    "detail": "docs/DETAIL.md"
+  }
+}

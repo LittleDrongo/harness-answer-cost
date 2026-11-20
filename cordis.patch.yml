@@ -1,0 +1,17 @@
+- insert:
+    - id: answer-cost
+      name: '@local/answer-cost'
+      config:
+        currency: RUB
+        rate: 81.929
+        prices:
+          '*/deepseek-flash':
+            input: 0.3
+            cacheRead: 0.006
+            cacheWrite: 0.3
+            output: 1.2
+          '*/deepseek-v4-pro':
+            input: 1.32
+            cacheRead: 0.044
+            cacheWrite: 1.32
+            output: 3.96
