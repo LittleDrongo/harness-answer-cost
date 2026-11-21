@@ -41,15 +41,16 @@ window.__ModuleLoader__.load({
      * only as fresh as the configuration.
      */
     const DEFAULT_CURRENCY = 'RUB'
-    const DEFAULT_RATE = 81.929
+    const DEFAULT_RATE = 82.1911
 
     const CSS = `
 .answer-cost-root {
   position: relative; display: flex; align-items: flex-start;
 }
 .answer-cost-trigger {
-  display: inline-flex; align-items: center; gap: 4px; min-width: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0;
   height: calc(28px + var(--dsh-content-font-delta, 0px));
+  width: calc(100% + 6px);
   margin-left: -6px; padding: 6px;
   border: none; border-radius: var(--dsw-radius-sm);
   background: transparent; color: var(--dsw-alias-label-tertiary);
@@ -57,8 +58,10 @@ window.__ModuleLoader__.load({
   line-height: calc(24px + var(--dsh-content-font-delta, 0px));
   font-variant-numeric: tabular-nums; white-space: nowrap; cursor: pointer;
 }
+.answer-cost-side { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.answer-cost-side-right { justify-content: flex-end; }
 .answer-cost-trigger svg { width: calc(15px + var(--dsh-content-font-delta, 0px)); height: calc(15px + var(--dsh-content-font-delta, 0px)); flex: none; }
-.answer-cost-trigger .answer-cost-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.answer-cost-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .answer-cost-trigger[aria-expanded='true'] { background: var(--dsw-alias-interactive-bg-hover); }
 @media (hover: hover) {
   .answer-cost-trigger:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-secondary); }
@@ -118,6 +121,10 @@ window.__ModuleLoader__.load({
         sessionRow: 'Session',
         sessionNote: 'Session total covers the whole Session log, including earlier turns.',
         sessionPartial: 'Routes without a price are not part of the session total.',
+        projectInline: 'project {amount}',
+        projectRow: 'Project',
+        projectNote: 'Project total covers every Session of this folder ({count} in total) and is computed when a Session opens.',
+        projectPartial: '{count} project Sessions could not be read and are not in the total.',
         hint: 'Estimated cost of this answer — open the token breakdown',
         title: 'Estimated cost',
         model: 'Model',
@@ -129,7 +136,9 @@ window.__ModuleLoader__.load({
         inUsd: 'In US dollars',
         steps: 'Steps',
         prices: 'Prices per 1M tokens (USD): input {input}, cached input {cacheRead}, cache write {cacheWrite}, output {output}.',
-        rate: 'Converted at {rate} per 1 US dollar.',
+        rateTopUp: 'Rate from the top-up on {date}: {rate} per 1 US dollar.',
+        rateFixed: 'No top-up detected yet; the packaged rate is used: {rate} per 1 US dollar.',
+        rateByTopUp: 'Session and project totals use the rate pinned at each top-up.',
         unpriced: 'No price is configured for {route}, so only token usage is shown.',
         severalModels: 'several models',
         multiRoute: 'This answer used {count} model routes, so only token usage is shown.',
@@ -145,6 +154,10 @@ window.__ModuleLoader__.load({
         sessionRow: 'Сессия',
         sessionNote: 'Итог сессии — по всему журналу, включая прошлые ходы.',
         sessionPartial: 'Маршруты без цены не вошли в итог сессии.',
+        projectInline: 'проект {amount}',
+        projectRow: 'Проект',
+        projectNote: 'Итог проекта — все сессии этой папки (всего {count}); считается при открытии сессии.',
+        projectPartial: 'Не удалось прочитать {count} сессий проекта — они не вошли в итог.',
         hint: 'Оценка стоимости ответа — показать расход токенов',
         title: 'Оценка стоимости',
         model: 'Модель',
@@ -156,7 +169,9 @@ window.__ModuleLoader__.load({
         inUsd: 'В долларах',
         steps: 'Шаги',
         prices: 'Цены за 1 млн токенов (USD): ввод без кэша {input}, ввод из кэша {cacheRead}, запись в кэш {cacheWrite}, вывод {output}.',
-        rate: 'Курс пересчёта: {rate} за 1 доллар США.',
+        rateTopUp: 'Курс с пополнения {date}: {rate} за 1 доллар США.',
+        rateFixed: 'Пополнение ещё не зафиксировано — используется курс из настроек: {rate} за 1 доллар США.',
+        rateByTopUp: 'Итоги сессии и проекта считаются по курсу, зафиксированному на момент каждого пополнения.',
         unpriced: 'Для {route} цена не задана — показан только расход токенов.',
         severalModels: 'несколько моделей',
         multiRoute: 'В ответе участвовало несколько моделей ({count}), поэтому показан только расход токенов.',
@@ -172,6 +187,10 @@ window.__ModuleLoader__.load({
         sessionRow: '会话',
         sessionNote: '会话总计覆盖整个日志，包括此前的轮次。',
         sessionPartial: '未配置价格的路由不计入会话总计。',
+        projectInline: '项目 {amount}',
+        projectRow: '项目',
+        projectNote: '项目总计覆盖该文件夹的所有会话（共 {count} 个），打开会话时计算。',
+        projectPartial: '{count} 个会话无法读取，未计入项目总计。',
         hint: '本次回答的费用估算 — 展开查看令牌明细',
         title: '费用估算',
         model: '模型',
@@ -183,7 +202,9 @@ window.__ModuleLoader__.load({
         inUsd: '美元金额',
         steps: '步骤',
         prices: '每百万令牌价格（USD）：输入 {input}，缓存读取 {cacheRead}，缓存写入 {cacheWrite}，输出 {output}。',
-        rate: '按 1 美元 = {rate} 换算。',
+        rateTopUp: '按 {date} 充值时锁定的汇率：1 美元 = {rate}。',
+        rateFixed: '尚未检测到充值，使用配置汇率：1 美元 = {rate}。',
+        rateByTopUp: '会话与项目总计按每次充值时锁定的汇率计算。',
         unpriced: '{route} 未配置价格，仅显示令牌用量。',
         severalModels: '多个模型',
         multiRoute: '该回答使用了 {count} 条模型路由，因此仅显示令牌用量。',
@@ -385,20 +406,15 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * Price the whole Session from the host projection: per-route token buckets
-     * multiplied by the same prices as one answer.
-     * @param view - the `answerCost` wire view, or undefined while absent.
+     * Price one route map: per-route token buckets multiplied by the same
+     * prices as one answer.
+     * @param routes - route key → token buckets, or undefined.
      * @param prices - per-route prices in USD per 1M tokens.
-     * @returns USD total, its token total, and how many routes stayed unpriced.
+     * @returns USD amount, token total, and priced/unpriced route counts.
      */
-    function sessionCostOf(view, prices) {
-      if (view === null || view === undefined || typeof view !== 'object') return null
-      const routes = view.routes
-      if (routes === null || routes === undefined || typeof routes !== 'object') return null
-      let usd = 0
-      let tokens = 0
-      let pricedRoutes = 0
-      let unpricedRoutes = 0
+    function routesCostOf(routes, prices) {
+      const totals = { usd: 0, tokens: 0, pricedRoutes: 0, unpricedRoutes: 0 }
+      if (routes === null || routes === undefined || typeof routes !== 'object') return totals
       for (const key of Object.keys(routes)) {
         const buckets = routes[key]
         if (buckets === null || typeof buckets !== 'object') continue
@@ -406,17 +422,121 @@ window.__ModuleLoader__.load({
         const cacheRead = countOr(buckets.cacheRead, 0)
         const cacheWrite = countOr(buckets.cacheWrite, 0)
         const output = countOr(buckets.output, 0)
-        tokens += input + cacheRead + cacheWrite + output
+        totals.tokens += input + cacheRead + cacheWrite + output
         const price = priceForKey(prices, key)
         if (price === undefined || isZeroPrice(price)) {
-          if (input + cacheRead + cacheWrite + output > 0) unpricedRoutes += 1
+          if (input + cacheRead + cacheWrite + output > 0) totals.unpricedRoutes += 1
           continue
         }
-        usd += (input * price.input + cacheRead * price.cacheRead + cacheWrite * price.cacheWrite + output * price.output) / 1e6
-        pricedRoutes += 1
+        totals.usd += (input * price.input + cacheRead * price.cacheRead + cacheWrite * price.cacheWrite + output * price.output) / 1e6
+        totals.pricedRoutes += 1
       }
-      if (pricedRoutes === 0 || !Number.isFinite(usd)) return null
-      return { usd, tokens, unpricedRoutes }
+      return totals
+    }
+
+    /** Local date and time of a top-up instant. */
+    function formatInstant(at, tag) {
+      try {
+        return new Intl.DateTimeFormat(tag, { dateStyle: 'medium', timeStyle: 'short' }).format(at)
+      } catch {
+        return new Date(at).toISOString().slice(0, 16).replace('T', ' ')
+      }
+    }
+
+    /**
+     * Rate in force at one instant: the newest top-up period at or before it.
+     * @param periods - list of { at, rate } from the projection, oldest first.
+     * @param time - epoch milliseconds of the request.
+     * @param fallback - packaged rate used before the first known top-up.
+     * @returns the rate, the period start, and whether a pinned period was used.
+     */
+    function rateForTime(periods, time, fallback) {
+      const list = Array.isArray(periods) ? periods : []
+      let found
+      for (const period of list) {
+        if (period === null || typeof period !== "object") continue
+        if (typeof period.at !== "number" || typeof period.rate !== "number") continue
+        if (period.at <= time) found = period
+        else break
+      }
+      if (found === undefined) return { rate: fallback, at: undefined, pinned: false }
+      return { rate: found.rate, at: found.at, pinned: true }
+    }
+
+    /**
+     * Price per-period route maps: each period cost in USD times the rate that
+     * was pinned at the top-up starting it.
+     * @param buckets - map of period start to route buckets.
+     * @param prices - per-route prices in USD per 1M tokens.
+     * @param periods - list of { at, rate } from the projection.
+     * @param fallback - packaged rate used for usage before the first top-up.
+     * @returns USD and RUB totals, token total, unpriced routes, and whether any
+     *   period fell back to the packaged rate.
+     */
+    function periodsCostOf(buckets, prices, periods, fallback) {
+      const totals = { usd: 0, rub: 0, tokens: 0, pricedRoutes: 0, unpricedRoutes: 0, estimated: false }
+      if (buckets === null || buckets === undefined || typeof buckets !== "object") return totals
+      const byStart = new Map()
+      for (const period of Array.isArray(periods) ? periods : []) {
+        if (period !== null && typeof period === "object" && typeof period.at === "number") byStart.set(String(period.at), period.rate)
+      }
+      for (const period of Object.keys(buckets)) {
+        const totalsForPeriod = routesCostOf(buckets[period], prices)
+        totals.tokens += totalsForPeriod.tokens
+        totals.unpricedRoutes += totalsForPeriod.unpricedRoutes
+        if (totalsForPeriod.pricedRoutes === 0) continue
+        const pinned = byStart.has(period)
+        const rate = pinned ? byStart.get(period) : fallback
+        if (!pinned) totals.estimated = true
+        totals.usd += totalsForPeriod.usd
+        totals.rub += totalsForPeriod.usd * rate
+        totals.pricedRoutes += totalsForPeriod.pricedRoutes
+      }
+      return totals
+    }
+
+    /**
+     * This Session's own total from the host projection.
+     * @param view - the answerCost wire view, or undefined while absent.
+     * @param prices - per-route prices in USD per 1M tokens.
+     * @returns USD and RUB totals, or null when nothing is priced.
+     */
+    function sessionCostOf(view, prices, fallbackRate) {
+      if (view === null || view === undefined || typeof view !== "object") return null
+      const totals = periodsCostOf(view.buckets, prices, view.periods, fallbackRate)
+      if (totals.pricedRoutes === 0 || !Number.isFinite(totals.usd)) return null
+      return {
+        usd: totals.usd,
+        rub: totals.rub,
+        tokens: totals.tokens,
+        unpricedRoutes: totals.unpricedRoutes,
+        estimated: totals.estimated,
+      }
+    }
+
+    /**
+     * The whole project from the host projection: it already merges every
+     * Session of the folder, this one included.
+     * @param view - the answerCost wire view, or undefined while absent.
+     * @param prices - per-route prices in USD per 1M tokens.
+     * @returns USD and RUB totals plus the Session counts, or null before the scan.
+     */
+    function projectCostOf(view, prices, fallbackRate) {
+      if (view === null || view === undefined || typeof view !== "object") return null
+      const project = view.project
+      if (project === null || project === undefined || typeof project !== "object") return null
+      const totals = periodsCostOf(project.buckets, prices, view.periods, fallbackRate)
+      // Every route unpriced means the total would be a silent zero, not a total.
+      if (totals.pricedRoutes === 0 && totals.unpricedRoutes > 0) return null
+      if (!Number.isFinite(totals.usd)) return null
+      return {
+        usd: totals.usd,
+        rub: totals.rub,
+        sessions: countOr(project.sessions, 0),
+        skipped: countOr(project.skipped, 0),
+        unpricedRoutes: totals.unpricedRoutes,
+        estimated: totals.estimated,
+      }
     }
 
     /**
@@ -466,39 +586,46 @@ window.__ModuleLoader__.load({
         const priced = priceOf(usage, settings.prices)
         const routes = Array.isArray(usage.routes) ? usage.routes : []
         const singleRoute = routes.length === 1 ? routeKeyOf(routes[0]) : undefined
-        // Provider prices are USD; the rate converts them for display only.
-        const displayAmount = priced === null ? null : priced.amount * settings.rate
-        const displayText = displayAmount === null ? undefined : formatCost(displayAmount, settings.currency, tag)
-        const usdText = priced === null ? undefined : formatCost(priced.amount, 'USD', tag)
-        const session = sessionCostOf(sessionView, settings.prices)
-        const sessionText = session === null
-          ? undefined
-          : settings.currency === 'USD'
-            ? formatCost(session.usd, 'USD', tag)
-            : formatCost(session.usd * settings.rate, settings.currency, tag)
-        const sessionUsdText = session === null || settings.currency === 'USD'
-          ? undefined
-          : formatCost(session.usd, 'USD', tag)
+        const fallbackRate = settings.rate
 
-        // One line: the answer in rubles and dollars, then the whole session.
-        const parts = []
-        if (displayText === undefined) {
-          parts.push(t('badgeTokens', { tokens: formatTokens(countOr(usage.totalTokens, 0), tag) }))
+        // The answer is priced with the rate pinned by the last top-up before it.
+        const writtenAt = detail.closing.time !== undefined ? detail.closing.time : detail.time
+        const answerRate = rateForTime(
+          sessionView === undefined || sessionView === null ? undefined : sessionView.periods,
+          writtenAt,
+          fallbackRate,
+        )
+        const answerRub = priced === null ? undefined : priced.amount * answerRate.rate
+        const rubText = answerRub === undefined ? undefined : formatCost(answerRub, settings.currency, tag)
+        const usdText = priced === null ? undefined : formatCost(priced.amount, 'USD', tag)
+
+        const session = sessionCostOf(sessionView, settings.prices, fallbackRate)
+        const project = projectCostOf(sessionView, settings.prices, fallbackRate)
+        const pair = (rub, usd) => settings.currency === 'USD'
+          ? formatCost(usd, 'USD', tag)
+          : formatCost(rub, settings.currency, tag) + ' / ' + formatCost(usd, 'USD', tag)
+        const sessionAmount = session === null ? undefined : pair(session.rub, session.usd)
+        const projectAmount = project === null ? undefined : pair(project.rub, project.usd)
+
+        // Left edge: this answer. Right edge: the Session and the whole project.
+        const leftParts = []
+        if (rubText === undefined) {
+          leftParts.push(t('badgeTokens', { tokens: formatTokens(countOr(usage.totalTokens, 0), tag) }))
         } else {
-          const bounded = displayText.startsWith('<')
+          const leadingText = settings.currency === 'USD' ? usdText : rubText
+          const bounded = leadingText.startsWith('<')
           const answerAmount = settings.currency === 'USD'
-            ? displayText
-            : displayText + ' / ' + usdText
-          parts.push(bounded
+            ? usdText
+            : rubText + ' / ' + usdText
+          leftParts.push(bounded
             ? t('bound', { amount: answerAmount.replace(/^<\s*/, '') })
             : t('approx', { amount: answerAmount }))
         }
-        if (sessionText !== undefined) {
-          parts.push(t('sessionInline', {
-            amount: sessionUsdText === undefined ? sessionText : sessionText + ' / ' + sessionUsdText,
-          }))
-        }
-        const label = parts.join(' · ')
+        const rightParts = []
+        if (sessionAmount !== undefined) rightParts.push(t('sessionInline', { amount: sessionAmount }))
+        if (projectAmount !== undefined) rightParts.push(t('projectInline', { amount: projectAmount }))
+        const leftText = leftParts.join(' · ')
+        const rightText = rightParts.join(' · ')
 
         const rows = []
         const row = (label, value) => {
@@ -518,9 +645,8 @@ window.__ModuleLoader__.load({
         row(t('output'), formatExactTokens(countOr(usage.outputTokens, 0), tag))
         row(t('totalTokens'), formatExactTokens(countOr(usage.totalTokens, 0), tag))
         if (priced !== null && settings.currency !== 'USD') row(t('inUsd'), formatCost(priced.amount, 'USD', tag))
-        if (session !== null && sessionText !== undefined) {
-          row(t('sessionRow'), sessionUsdText === undefined ? sessionText : sessionText + ' / ' + sessionUsdText)
-        }
+        if (sessionAmount !== undefined) row(t('sessionRow'), sessionAmount)
+        if (projectAmount !== undefined) row(t('projectRow'), projectAmount)
         if (turn.steps !== undefined && turn.steps !== null) row(t('steps'), String(turn.steps.length))
 
         const notes = []
@@ -532,9 +658,17 @@ window.__ModuleLoader__.load({
             output: formatPrice(priced.price.output, tag),
           })))
           if (settings.currency !== 'USD') {
-            notes.push(h('p', { key: 'rate', className: 'answer-cost-note' }, t('rate', {
-              rate: formatRate(settings.rate, settings.currency, tag),
-            })))
+            if (answerRate.pinned) {
+              notes.push(h('p', { key: 'rateTopUp', className: 'answer-cost-note' }, t('rateTopUp', {
+                date: formatInstant(answerRate.at, tag),
+                rate: formatRate(answerRate.rate, settings.currency, tag),
+              })))
+            } else {
+              notes.push(h('p', { key: 'rateFixed', className: 'answer-cost-note' }, t('rateFixed', {
+                rate: formatRate(answerRate.rate, settings.currency, tag),
+              })))
+            }
+            notes.push(h('p', { key: 'rateByTopUp', className: 'answer-cost-note' }, t('rateByTopUp')))
           }
         } else if (routes.length > 1) {
           notes.push(h('p', { key: 'multiRoute', className: 'answer-cost-note' }, t('multiRoute', { count: String(routes.length) })))
@@ -547,6 +681,12 @@ window.__ModuleLoader__.load({
           notes.push(h('p', { key: 'sessionNote', className: 'answer-cost-note' }, t('sessionNote')))
           if (session.unpricedRoutes > 0) {
             notes.push(h('p', { key: 'sessionPartial', className: 'answer-cost-note' }, t('sessionPartial')))
+          }
+        }
+        if (project !== null) {
+          notes.push(h('p', { key: 'projectNote', className: 'answer-cost-note' }, t('projectNote', { count: String(project.sessions) })))
+          if (project.skipped > 0) {
+            notes.push(h('p', { key: 'projectPartial', className: 'answer-cost-note' }, t('projectPartial', { count: String(project.skipped) })))
           }
         }
         notes.push(h('p', { key: 'estimate', className: 'answer-cost-note' }, t('estimate')))
@@ -562,11 +702,16 @@ window.__ModuleLoader__.load({
             'aria-controls': open ? panelId : undefined,
             onClick: () => { setOpen(value => !value) },
           },
-            h('svg', { viewBox: '0 0 16 16', 'aria-hidden': true },
-              h('circle', { cx: 8, cy: 8, r: 6.3, fill: 'none', stroke: 'currentColor', 'stroke-width': 1.4 }),
-              h('circle', { cx: 8, cy: 8, r: 2.6, fill: 'currentColor' }),
+            h('span', { className: 'answer-cost-side' },
+              h('svg', { viewBox: '0 0 16 16', 'aria-hidden': true },
+                h('circle', { cx: 8, cy: 8, r: 6.3, fill: 'none', stroke: 'currentColor', 'stroke-width': 1.4 }),
+                h('circle', { cx: 8, cy: 8, r: 2.6, fill: 'currentColor' }),
+              ),
+              h('span', { className: 'answer-cost-label' }, leftText),
             ),
-            h('span', { className: 'answer-cost-label' }, label),
+            rightText === '' ? null : h('span', { className: 'answer-cost-side answer-cost-side-right' },
+              h('span', { className: 'answer-cost-label' }, rightText),
+            ),
           ),
           open && h('div', {
             className: 'answer-cost-panel',
@@ -576,7 +721,7 @@ window.__ModuleLoader__.load({
           },
             h('div', { className: 'answer-cost-title' },
               h('span', null, t('title')),
-              priced === null ? null : h('span', { className: 'answer-cost-amount' }, formatCost(displayAmount, settings.currency, tag)),
+              priced === null ? null : h('span', { className: 'answer-cost-amount' }, settings.currency === 'USD' ? usdText : rubText),
             ),
             h('dl', { className: 'answer-cost-details' }, rows),
             notes,

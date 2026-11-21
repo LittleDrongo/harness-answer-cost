@@ -3,7 +3,7 @@
       name: '@local/answer-cost'
       config:
         currency: RUB
-        rate: 81.929
+        rate: 82.1911
         prices:
           '*/deepseek-flash':
             input: 0.3
