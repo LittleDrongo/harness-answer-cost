@@ -89,6 +89,16 @@ window.__ModuleLoader__.load({
 .answer-cost-details dt { color: var(--dsw-alias-label-tertiary); }
 .answer-cost-details dd { color: var(--dsw-alias-label-secondary); font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; }
 .answer-cost-note { margin: 8px 0 0; color: var(--dsw-alias-label-tertiary); font-size: 11px; line-height: 16px; }
+.answer-cost-balance {
+  display: inline-flex; align-items: center; gap: 6px; min-width: 0;
+  padding: 1px 8px; border-radius: var(--dsw-radius-sm);
+  color: var(--dsw-alias-label-tertiary);
+  font-size: calc(var(--dsh-content-font-size-secondary, 13px) - 1px);
+  line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px));
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.answer-cost-balance svg { width: 14px; height: 14px; flex: none; }
+.answer-cost-balance-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .answer-cost-visually-hidden {
   position: absolute; width: 1px; height: 1px; overflow: hidden;
   clip: rect(0 0 0 0); white-space: nowrap;
@@ -139,6 +149,7 @@ window.__ModuleLoader__.load({
         rateTopUp: 'Rate from the top-up on {date}: {rate} per 1 US dollar.',
         rateFixed: 'No top-up detected yet; the packaged rate is used: {rate} per 1 US dollar.',
         rateByTopUp: 'Session and project totals use the rate pinned at each top-up.',
+        balanceHint: 'Balance left on the account: dollars, and roubles at the pinned top-up rate.',
         unpriced: 'No price is configured for {route}, so only token usage is shown.',
         severalModels: 'several models',
         multiRoute: 'This answer used {count} model routes, so only token usage is shown.',
@@ -172,6 +183,7 @@ window.__ModuleLoader__.load({
         rateTopUp: 'Курс с пополнения {date}: {rate} за 1 доллар США.',
         rateFixed: 'Пополнение ещё не зафиксировано — используется курс из настроек: {rate} за 1 доллар США.',
         rateByTopUp: 'Итоги сессии и проекта считаются по курсу, зафиксированному на момент каждого пополнения.',
+        balanceHint: 'Остаток на счёте: доллары и рубли по курсу последнего пополнения.',
         unpriced: 'Для {route} цена не задана — показан только расход токенов.',
         severalModels: 'несколько моделей',
         multiRoute: 'В ответе участвовало несколько моделей ({count}), поэтому показан только расход токенов.',
@@ -205,6 +217,7 @@ window.__ModuleLoader__.load({
         rateTopUp: '按 {date} 充值时锁定的汇率：1 美元 = {rate}。',
         rateFixed: '尚未检测到充值，使用配置汇率：1 美元 = {rate}。',
         rateByTopUp: '会话与项目总计按每次充值时锁定的汇率计算。',
+        balanceHint: '账户余额：美元，以及按最近充值汇率折算的卢布。',
         unpriced: '{route} 未配置价格，仅显示令牌用量。',
         severalModels: '多个模型',
         multiRoute: '该回答使用了 {count} 条模型路由，因此仅显示令牌用量。',
@@ -463,6 +476,22 @@ window.__ModuleLoader__.load({
       return { rate: found.rate, at: found.at, pinned: true }
     }
 
+    /** Rate of the newest pinned top-up period, or the packaged fallback. */
+    function latestRate(periods, fallback) {
+      const list = Array.isArray(periods) ? periods : []
+      let rate = fallback
+      let latest = -Infinity
+      for (const period of list) {
+        if (period === null || typeof period !== 'object') continue
+        if (typeof period.at !== 'number' || typeof period.rate !== 'number') continue
+        if (period.at >= latest) {
+          latest = period.at
+          rate = period.rate
+        }
+      }
+      return rate
+    }
+
     /**
      * Price per-period route maps: each period cost in USD times the rate that
      * was pinned at the top-up starting it.
@@ -536,6 +565,39 @@ window.__ModuleLoader__.load({
         skipped: countOr(project.skipped, 0),
         unpricedRoutes: totals.unpricedRoutes,
         estimated: totals.estimated,
+      }
+    }
+
+    /**
+     * The composer dock pill: the wallet balance in dollars, and in roubles at
+     * the newest pinned top-up rate.
+     * @param settings - display currency and fallback rate.
+     * @param locale - the Client locale service, read for number formatting.
+     * @returns the React entry for the composer dock.
+     */
+    function createBalancePill(settings, locale) {
+      return function BalancePill({ t, useProjection }) {
+        const view = typeof useProjection === 'function' ? useProjection('answerCost') : undefined
+        const balance = view !== null && view !== undefined && typeof view === 'object' ? view.balance : undefined
+        if (balance === null || balance === undefined || typeof balance !== 'object') return null
+        if (typeof balance.amount !== 'number' || !Number.isFinite(balance.amount)) return null
+        const tag = activeTag(locale)
+        const walletCurrency = typeof balance.currency === 'string' && /^[A-Za-z]{3}$/.test(balance.currency)
+          ? balance.currency.toUpperCase()
+          : 'USD'
+        const usdText = formatCost(balance.amount, walletCurrency, tag)
+        const showRoubles = walletCurrency === 'USD' && settings.currency !== 'USD'
+        const rate = latestRate(view.periods, settings.rate)
+        const label = showRoubles
+          ? usdText + ' / ' + formatCost(balance.amount * rate, settings.currency, tag)
+          : usdText
+        return h('span', { className: 'answer-cost-balance', title: t('balanceHint') },
+          h('svg', { viewBox: '0 0 16 16', 'aria-hidden': true },
+            h('circle', { cx: 8, cy: 8, r: 6.3, fill: 'none', stroke: 'currentColor', 'stroke-width': 1.4 }),
+            h('circle', { cx: 8, cy: 8, r: 2.6, fill: 'currentColor' }),
+          ),
+          h('span', { className: 'answer-cost-balance-label' }, label),
+        )
       }
     }
 
@@ -742,6 +804,12 @@ window.__ModuleLoader__.load({
           order: 4,
           locale: NS,
         }, createAnswerCost(settings, ctx.locale)))
+        ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register({
+          name: 'conversation.composer.dock',
+          id: 'answer-cost-balance',
+          order: 2,
+          locale: NS,
+        }, createBalancePill(settings, ctx.locale)))
       },
     }
   },

@@ -10,6 +10,11 @@ ones.
 ≈ 0,56 ₽ / $0.0066                    сессия 11,02 ₽ / $0.135 · проект 3,24 ₽ / $0.0390
 ```
 
+Next to the turn and context pills under the composer, a balance pill shows what
+is left on the account — dollars and roubles at the pinned top-up rate, for
+example `$1.76 / 150,63 ₽`. It appears only when the account wallet is readable
+and disappears for an API-key route or before the first balance read.
+
 The left edge is this answer; the right edge is the Session and the project
 (every Session whose working directory is the same folder). Clicking the line
 floats the token breakdown above it: the model route, input tokens billed without

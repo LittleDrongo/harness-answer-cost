@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "Answer cost",
-    "description": "Shows each answer's cost plus the whole Session and project cost in one line under the reply in Chat, in roubles and US dollars, with a click-open breakdown. The rouble figure uses the CBR rate pinned at your last balance top-up, so a top-up re-prices future requests only. Prices are USD per model route; the packaged defaults are DeepSeek peak rates.",
+    "description": "Shows each answer's cost plus the whole Session and project cost in one line under the reply in Chat, and the remaining account balance beside the composer, in roubles and US dollars. The rouble figure uses the CBR rate pinned at your last balance top-up, so a top-up re-prices future requests only. Prices are USD per model route; the packaged defaults are DeepSeek peak rates.",
     "detail": "docs/DETAIL.md"
   }
 }

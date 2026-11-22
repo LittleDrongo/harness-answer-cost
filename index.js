@@ -330,6 +330,7 @@ function viewOf(state) {
     periods: book === undefined ? [] : book.snapshotPeriods(),
     buckets: state.buckets,
     project: projectFor(state),
+    balance: book === undefined || book.lastBalance === null ? null : { ...book.lastBalance },
   }
   return cachedView
 }
@@ -376,6 +377,16 @@ function parsePeriods(value) {
   return periods.sort((left, right) => left.at - right.at)
 }
 
+function parseBalance(value) {
+  if (value === null || value === undefined) return null
+  if (typeof value !== 'object') throw new TypeError('answer-cost: balance must be an object or null')
+  if (typeof value.currency !== 'string' || value.currency.length === 0) throw new TypeError('answer-cost: invalid balance currency')
+  if (typeof value.amount !== 'number' || !Number.isFinite(value.amount) || value.amount < 0) {
+    throw new TypeError('answer-cost: invalid balance amount')
+  }
+  return { currency: value.currency, amount: value.amount }
+}
+
 function parseProject(value) {
   if (value === null) return null
   if (typeof value !== 'object') throw new TypeError('answer-cost: project must be an object or null')
@@ -393,6 +404,7 @@ const viewSchema = {
       periods: parsePeriods(value.periods),
       buckets: parseBucketsByPeriod(value.buckets),
       project: parseProject(value.project === undefined ? null : value.project),
+      balance: parseBalance(value.balance),
     }
   },
 }
@@ -480,6 +492,7 @@ async function pollBalance() {
   const changed = previous === null || previous.currency !== wallet.currency || previous.amount !== amount
   if (!changed) return
   book.lastBalance = { currency: wallet.currency, amount }
+  bumpAll()
   if (previous !== null && previous.currency === wallet.currency && amount > previous.amount + TOP_UP_EPSILON) {
     const period = await book.recordTopUp(Date.now(), fallbackRate)
     if (period !== null) bumpAll()
